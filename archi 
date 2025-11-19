@@ -1,0 +1,58 @@
+traffic-monitor/
+├── backend/                      # FastAPI
+│   ├── app/
+│   │   ├── main.py              # Point d'entrée FastAPI
+│   │   ├── api/
+│   │   │   ├── routes/
+│   │   │   │   ├── zones.py     # Routes zones
+│   │   │   │   ├── aggregates.py
+│   │   │   │   └── websocket.py
+│   │   │   └── dependencies.py
+│   │   ├── core/
+│   │   │   ├── config.py        # Configuration
+│   │   │   └── spark_client.py  # Client Spark
+│   │   ├── models/
+│   │   │   └── schemas.py       # Pydantic models
+│   │   └── services/
+│   │       ├── kafka_consumer.py
+│   │       └── hdfs_reader.py
+│   ├── requirements.txt
+│   └── Dockerfile
+│
+├── frontend/                     # React
+│   ├── public/
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── Map/
+│   │   │   │   ├── TrafficMap.jsx
+│   │   │   │   └── MarkerCluster.jsx
+│   │   │   ├── Charts/
+│   │   │   │   ├── CongestChart.jsx
+│   │   │   │   ├── TimelineChart.jsx
+│   │   │   │   └── HeatmapChart.jsx
+│   │   │   ├── Dashboard/
+│   │   │   │   ├── KPICards.jsx
+│   │   │   │   └── AlertPanel.jsx
+│   │   │   └── Layout/
+│   │   │       └── MainLayout.jsx
+│   │   ├── services/
+│   │   │   ├── api.js           # API calls
+│   │   │   └── websocket.js     # WebSocket
+│   │   ├── store/
+│   │   │   └── trafficStore.js  # Zustand store
+│   │   ├── utils/
+│   │   │   └── helpers.js
+│   │   ├── App.jsx
+│   │   └── main.jsx
+│   ├── package.json
+│   ├── vite.config.js
+│   ├── tailwind.config.js
+│   └── Dockerfile
+│
+├── spark/                        # Jobs Spark
+│   ├── streaming_etl.py
+│   ├── batch_aggregates.py
+│   └── kafka_producer.py
+│
+├── docker-compose.yml            # Infrastructure complète
+└── README.md
