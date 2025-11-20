@@ -14,6 +14,9 @@ services:
       - ./myhadoop:/myhadoop
     environment:
       - CLUSTER_NAME=test
+      - HDFS-SITE.XML_dfs.datanode.max.transfer.threads=8192
+      - HDFS-SITE.XML_dfs.datanode.max.xcievers=8192
+      - HDFS-SITE.XML_dfs.datanode.disk.check.min.gap=30s
     env_file:
       - ./hadoop.env
 
