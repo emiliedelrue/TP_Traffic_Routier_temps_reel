@@ -6,6 +6,7 @@ import {
   BarChart3,
   Bell,
   Settings,
+  AlertCircle,
 } from 'lucide-react';
 import Dashboard from './components/Dashboard/Dashboard';
 import MapView from './components/Map/MapView';
@@ -13,61 +14,31 @@ import Analytics from './components/Analytics/Analytics';
 import Alerts from './components/Alerts/Alerts';
 import Sidebar from './components/Layout/Sidebar';
 import TopBar from './components/Layout/TopBar';
+import { 
+  fetchLiveZones, 
+  fetchAggregateStats,
+  transformZoneData,
+  transformAggregateStats
+} from './services/api';
 
 function App() {
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
   const [lastUpdate, setLastUpdate] = useState(new Date());
   const [activeTab, setActiveTab] = useState('dashboard');
   const [trafficData, setTrafficData] = useState({
-    zones: [
-      { id: 1, name: 'Périphérique Est', location: 'Paris', congestion: 85, trend: 'up', vehicles: 1240, status: 'critical' },
-      { id: 2, name: 'A6 Sud', location: 'Lyon', congestion: 45, trend: 'down', vehicles: 680, status: 'normal' },
-      { id: 3, name: 'Rocade Ouest', location: 'Bordeaux', congestion: 72, trend: 'up', vehicles: 950, status: 'warning' },
-      { id: 4, name: 'A7 Nord', location: 'Marseille', congestion: 38, trend: 'stable', vehicles: 520, status: 'normal' },
-      { id: 5, name: 'A1 Nord', location: 'Toulouse', congestion: 55, trend: 'up', vehicles: 820, status: 'warning' },
-      { id: 6, name: 'A8 Est', location: 'Nice', congestion: 42, trend: 'down', vehicles: 590, status: 'normal' },
-    ],
+    zones: [],
     stats: {
-      averageCongestion: 60,
-      activeAlerts: 3,
-      totalZones: 12,
+      averageCongestion: 0,
+      activeAlerts: 0,
+      totalZones: 0,
       peakHours: '08:00-10:00',
-      totalVehicles: 15200,
-      alerts: [
-        { 
-          id: 1, 
-          type: 'critical', 
-          title: 'Accident majeur', 
-          location: 'Périphérique Est - Porte de Bagnolet', 
-          time: 'Il y a 5 min', 
-          duration: '30 min estimées',
-          status: 'active',
-          priority: 'high',
-          affectedVehicles: 350
-        },
-        { 
-          id: 2, 
-          type: 'warning', 
-          title: 'Travaux routiers', 
-          location: 'A6 - Sortie 12', 
-          time: 'Depuis 08:00', 
-          duration: 'Jusqu\'à 18:00',
-          status: 'active',
-          priority: 'medium',
-          affectedVehicles: 180
-        },
-        { 
-          id: 3, 
-          type: 'info', 
-          title: 'Événement sportif', 
-          location: 'Stade de France - Accès', 
-          time: 'À partir de 19:00', 
-          duration: '3 heures',
-          status: 'scheduled',
-          priority: 'low',
-          affectedVehicles: 200
-        },
-      ],
+      totalVehicles: 0,
+      fluide: 0,
+      modere: 0,
+      dense: 0,
+      bloque: 0,
+      alerts: [],
     },
   });
 
@@ -110,22 +81,88 @@ function App() {
     },
   ];
 
+  // Charger les données depuis l'API
+  const loadData = async () => {
+    setLoading(true);
+    setError(null);
+
+    try {
+      // Récupérer les zones et les stats en parallèle
+      const [zonesData, statsData] = await Promise.all([
+        fetchLiveZones(),
+        fetchAggregateStats()
+      ]);
+
+      // Transformer les données
+      const transformedZones = zonesData.map(transformZoneData);
+      const transformedStats = transformAggregateStats(statsData);
+
+      // Mettre à jour l'état
+      setTrafficData({
+        zones: transformedZones,
+        stats: {
+          ...transformedStats,
+          alerts: [], // À implémenter si vous avez des alertes
+        },
+      });
+
+      setLastUpdate(new Date());
+    } catch (err) {
+      console.error('Erreur lors du chargement des données:', err);
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Charger les données au montage et toutes les 10 secondes
   useEffect(() => {
     loadData();
-    const interval = setInterval(loadData, 30000);
+    const interval = setInterval(loadData, 10000); // 10 secondes
     return () => clearInterval(interval);
   }, []);
 
-  const loadData = async () => {
-    setLoading(true);
-    // Simuler un chargement de données
-    setTimeout(() => {
-      setLastUpdate(new Date());
-      setLoading(false);
-    }, 1000);
-  };
-
   const renderContent = () => {
+    // Afficher l'erreur si présente
+    if (error) {
+      return (
+        <div className="bg-red-50 border border-red-200 rounded-2xl p-8 text-center">
+          <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-red-900 mb-2">Erreur de connexion</h2>
+          <p className="text-red-700 mb-4">{error}</p>
+          <button
+            onClick={loadData}
+            className="px-6 py-3 bg-red-600 text-white rounded-xl hover:bg-red-700 transition-colors"
+          >
+            Réessayer
+          </button>
+          <p className="text-sm text-red-600 mt-4">
+            Vérifiez que le backend est lancé sur http://localhost:8000
+          </p>
+        </div>
+      );
+    }
+
+    // Afficher un message si pas de données
+    if (!loading && trafficData.zones.length === 0) {
+      return (
+        <div className="bg-yellow-50 border border-yellow-200 rounded-2xl p-8 text-center">
+          <AlertCircle className="w-16 h-16 text-yellow-500 mx-auto mb-4" />
+          <h2 className="text-2xl font-bold text-yellow-900 mb-2">Aucune donnée disponible</h2>
+          <p className="text-yellow-700 mb-4">
+            En attente des données du système de streaming...
+          </p>
+          <button
+            onClick={loadData}
+            className="px-6 py-3 bg-yellow-600 text-white rounded-xl hover:bg-yellow-700 transition-colors"
+          >
+            Rafraîchir
+          </button>
+        </div>
+      );
+    }
+
+    // Afficher le contenu selon l'onglet actif
     switch (activeTab) {
       case 'dashboard':
         return (
