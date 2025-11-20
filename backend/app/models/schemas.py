@@ -1,8 +1,8 @@
 from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional
+from typing import Optional, List
 
-class Zone(BaseModel):
+class ZoneBase(BaseModel):
     zone_id: str
     zone_name: str
     latitude: float
@@ -10,23 +10,12 @@ class Zone(BaseModel):
     current_speed: float
     free_flow_speed: float
     congestion_level: float
-    status: str  
+    status: str
     timestamp: datetime
-    
+
+class Zone(ZoneBase):
     class Config:
-        json_schema_extra = {
-            "example": {
-                "zone_id": "paris_champs_elysees",
-                "zone_name": "Champs-Élysées",
-                "latitude": 48.8698,
-                "longitude": 2.3078,
-                "current_speed": 35.5,
-                "free_flow_speed": 50.0,
-                "congestion_level": 29.0,
-                "status": "Modéré",
-                "timestamp": "2025-11-19T15:30:00"
-            }
-        }
+        from_attributes = True
 
 class ZoneHistory(BaseModel):
     timestamp: datetime
@@ -41,3 +30,18 @@ class AggregateStats(BaseModel):
     bloque: int
     avg_global_speed: float
     avg_global_congestion: float
+
+class IncidentCreate(BaseModel):
+    zone_id: str
+    incident_type: str
+    severity: str
+    speed_drop: float
+    timestamp: datetime
+
+class Incident(IncidentCreate):
+    id: int
+    resolved: bool
+    created_at: datetime
+    
+    class Config:
+        from_attributes = True
