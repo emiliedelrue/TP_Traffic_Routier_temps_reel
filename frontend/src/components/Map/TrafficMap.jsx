@@ -2,7 +2,7 @@ import React from 'react';
 import { MapContainer, TileLayer, CircleMarker, Popup } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 
-const TrafficMap = ({ zones }) => {
+const TrafficMap = ({ zones, onZoneClick }) => {
   const center = [48.8566, 2.3522]; // Paris
 
   const getColor = (congestion) => {
@@ -20,6 +20,12 @@ const TrafficMap = ({ zones }) => {
       'Bloqué': 'text-red-600',
     };
     return colors[status] || 'text-gray-600';
+  };
+
+  const handleZoneClick = (zoneId) => {
+    if (onZoneClick) {
+      onZoneClick(zoneId);
+    }
   };
 
   return (
@@ -45,6 +51,9 @@ const TrafficMap = ({ zones }) => {
             weight={2}
             opacity={1}
             fillOpacity={0.7}
+            eventHandlers={{
+              click: () => handleZoneClick(zone.zone_id),
+            }}
           >
             <Popup>
               <div className="p-2 min-w-[200px]">
@@ -68,6 +77,12 @@ const TrafficMap = ({ zones }) => {
                       {zone.status}
                     </span>
                   </p>
+                  <button 
+                    onClick={() => handleZoneClick(zone.zone_id)}
+                    className="mt-2 w-full px-3 py-1 bg-blue-500 text-white text-sm rounded hover:bg-blue-600 transition"
+                  >
+                    Voir l'historique
+                  </button>
                 </div>
               </div>
             </Popup>
