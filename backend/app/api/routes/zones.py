@@ -5,6 +5,8 @@ from app.db.database import get_db
 from app.models.schemas import Zone, ZoneHistory, AggregateStats
 from app.services.postgres_service import postgres_service
 from app.services.kafka_service import kafka_service
+from app.services.postgres_service import postgres_service
+from app.services.hdfs_service import hdfs_service
 
 router = APIRouter()
 
@@ -48,3 +50,21 @@ async def get_zone_history(zone_id: str, hours: int = 24):
         ))
     
     return history
+
+@router.get("/daily-aggregates")
+async def get_daily_aggregates(date: str = None):
+    """Agrégats journaliers depuis HDFS"""
+    try:
+        aggregates = hdfs_service.get_daily_aggregates(date)
+        return aggregates
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/hdfs-stats")
+async def get_hdfs_stats():
+    """Statistiques HDFS"""
+    try:
+        stats = hdfs_service.get_hdfs_stats()
+        return stats
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
