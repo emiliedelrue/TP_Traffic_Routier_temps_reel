@@ -1,19 +1,31 @@
-import axios from 'axios';
-
-const API_BASE_URL = 'http://localhost:8000/api';
-
-const api = axios.create({
-  baseURL: API_BASE_URL,
-  headers: {
-    'Content-Type': 'application/json',
-  },
-});
-
+// API service for demo purposes
 export const trafficAPI = {
-  getLiveZones: () => api.get('/zones/live'),
-  getTopCongested: (limit = 5) => api.get(`/zones/top-congested?limit=${limit}`),
-  getAggregateStats: () => api.get('/aggregates/stats'),
-  getZoneHistory: (zoneId, hours = 24) => api.get(`/zones/history/${zoneId}?hours=${hours}`),
+  getLiveZones: () => Promise.resolve({
+    data: [
+      { id: 1, name: 'Périphérique Est', location: 'Paris', congestionLevel: 85 },
+      { id: 2, name: 'A6 Sud', location: 'Lyon', congestionLevel: 45 },
+      { id: 3, name: 'Rocade Ouest', location: 'Bordeaux', congestionLevel: 72 },
+      { id: 4, name: 'A7 Nord', location: 'Marseille', congestionLevel: 38 },
+    ]
+  }),
+  
+  getAggregateStats: () => Promise.resolve({
+    data: {
+      averageCongestion: 60,
+      activeAlerts: 3,
+      peakHours: '08:00-10:00'
+    }
+  }),
+  
+  getTopCongested: (limit) => Promise.resolve({
+    data: [
+      { id: 1, name: 'Périphérique Est', location: 'Paris', congestionLevel: 85 },
+      { id: 3, name: 'Rocade Ouest', location: 'Bordeaux', congestionLevel: 72 },
+      { id: 5, name: 'A1 Nord', location: 'Lille', congestionLevel: 68 },
+    ]
+  }),
+  
+  getGlobalAlerts: () => Promise.resolve({
+    data: { critical: 1, warning: 2, info: 0 }
+  })
 };
-
-export default api;

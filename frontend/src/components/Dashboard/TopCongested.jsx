@@ -1,39 +1,80 @@
 import React from 'react';
+import { AlertCircle } from 'lucide-react';
 
 const TopCongested = ({ zones }) => {
-  const getColorClass = (congestion) => {
-    if (congestion < 20) return 'bg-green-500';
-    if (congestion < 50) return 'bg-yellow-500';
-    if (congestion < 80) return 'bg-orange-500';
-    return 'bg-red-500';
+  const getStatusColor = (congestion) => {
+    if (congestion >= 80) return 'bg-red-500';
+    if (congestion >= 50) return 'bg-orange-500';
+    if (congestion >= 20) return 'bg-yellow-500';
+    return 'bg-green-500';
+  };
+
+  const getStatusBg = (congestion) => {
+    if (congestion >= 80) return 'bg-red-50';
+    if (congestion >= 50) return 'bg-orange-50';
+    if (congestion >= 20) return 'bg-yellow-50';
+    return 'bg-green-50';
   };
 
   return (
-    <div className="bg-white rounded-lg shadow-md p-6">
-      <h2 className="text-2xl font-bold mb-4 text-gray-800">🔴 Top 5 Zones Congestionnées</h2>
-      <div className="space-y-3">
-        {zones.map((zone, index) => (
-          <div key={zone.zone_id} className="flex items-center space-x-4 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition">
-            <div className="flex-shrink-0 w-8 h-8 bg-gray-200 rounded-full flex items-center justify-center font-bold text-gray-700">
-              {index + 1}
-            </div>
-            <div className="flex-1">
-              <p className="font-semibold text-gray-800">{zone.zone_name}</p>
-              <p className="text-sm text-gray-500">{zone.current_speed.toFixed(1)} km/h</p>
-            </div>
-            <div className="flex items-center space-x-2">
-              <div className="w-32 bg-gray-200 rounded-full h-3 overflow-hidden">
-                <div 
-                  className={`h-full ${getColorClass(zone.congestion_level)} transition-all duration-500`}
-                  style={{ width: `${zone.congestion_level}%` }}
-                ></div>
+    <div className="bg-white border border-slate-200 rounded-xl overflow-hidden">
+      <div className="px-5 py-4 border-b border-slate-100">
+        <div className="flex items-center gap-2">
+          <AlertCircle className="w-4 h-4 text-red-500" />
+          <h2 className="font-semibold text-slate-900 text-sm">
+            Top 5 Congestion
+          </h2>
+        </div>
+      </div>
+
+      <div className="p-4">
+        {zones && zones.length > 0 ? (
+          <div className="space-y-3">
+            {zones.map((zone, index) => (
+              <div
+                key={zone.zone_id}
+                className={`${getStatusBg(zone.congestion_level)} rounded-lg p-3 border border-slate-200`}
+              >
+                <div className="flex items-center gap-3">
+                  {/* Position Badge */}
+                  <div className="flex-shrink-0 w-6 h-6 bg-slate-900 rounded-full flex items-center justify-center text-white text-xs font-bold">
+                    {index + 1}
+                  </div>
+
+                  {/* Info */}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-semibold text-slate-900 truncate">
+                      {zone.zone_name || `Zone ${zone.zone_id}`}
+                    </p>
+                    <p className="text-xs text-slate-500">
+                      {Math.round(zone.current_speed)} km/h
+                    </p>
+                  </div>
+
+                  {/* Congestion */}
+                  <div className="flex-shrink-0 text-right">
+                    <p className="text-lg font-bold text-slate-900">
+                      {Math.round(zone.congestion_level)}%
+                    </p>
+                  </div>
+                </div>
+
+                {/* Progress bar */}
+                <div className="mt-2 h-1.5 bg-white rounded-full overflow-hidden">
+                  <div
+                    className={`h-full ${getStatusColor(zone.congestion_level)} transition-all duration-500`}
+                    style={{ width: `${Math.min(zone.congestion_level, 100)}%` }}
+                  />
+                </div>
               </div>
-              <span className="font-bold text-gray-700 w-12 text-right">
-                {zone.congestion_level.toFixed(0)}%
-              </span>
-            </div>
+            ))}
           </div>
-        ))}
+        ) : (
+          <div className="text-center py-8">
+            <AlertCircle className="w-10 h-10 text-slate-300 mx-auto mb-2" />
+            <p className="text-sm text-slate-500">Aucune donnée</p>
+          </div>
+        )}
       </div>
     </div>
   );
