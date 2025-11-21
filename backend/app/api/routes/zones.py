@@ -10,7 +10,7 @@ try:
     from app.services.hdfs_service import hdfs_service
     HDFS_AVAILABLE = True
 except Exception as e:
-    print(f"⚠️  HDFS service non disponible : {e}")
+    print(f"  HDFS service non disponible : {e}")
     HDFS_AVAILABLE = False
 
 router = APIRouter()
@@ -54,7 +54,7 @@ async def get_zone_history(zone_id: str, days: int = 7):
                     for item in history_data
                 ]
         except Exception as e:
-            print(f"⚠️  Erreur lecture HDFS, fallback sur mock : {e}")
+            print(f"  Erreur lecture HDFS, fallback sur mock : {e}")
     
     from datetime import datetime, timedelta
     history = []

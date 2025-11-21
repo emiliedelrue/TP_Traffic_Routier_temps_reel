@@ -1,397 +1,282 @@
-import React, { useState } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import {
-  AlertTriangle, AlertCircle, Info, Search, Filter,
-  Clock, MapPin, X, Check, Archive, Bell, TrendingUp
-} from 'lucide-react';
+import React, { useState, useEffect } from "react";
 
-const Alerts = ({ alerts: initialAlerts }) => {
-  const [alerts, setAlerts] = useState(initialAlerts);
-  const [searchTerm, setSearchTerm] = useState('');
-  const [filterType, setFilterType] = useState('all');
-  const [sortBy, setSortBy] = useState('recent');
+const Alerts = () => {
+  const [alertsList, setAlertsList] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  const extendedAlerts = [
-    ...initialAlerts,
-    {
-      id: 4,
-      type: 'warning',
-      title: 'Ralentissement important',
-      location: 'A1 - Sortie 18',
-      time: 'Il y a 15 min',
-      duration: '45 min estimées',
-      status: 'active',
-      priority: 'medium',
-      affectedVehicles: 250
-    },
-    {
-      id: 5,
-      type: 'info',
-      title: 'Maintenance programmée',
-      location: 'Périphérique Ouest',
-      time: 'Demain à 02:00',
-      duration: '4 heures',
-      status: 'scheduled',
-      priority: 'low',
-      affectedVehicles: 50
-    },
-    {
-      id: 6,
-      type: 'critical',
-      title: 'Conditions météo dangereuses',
-      location: 'A6 - Zone Nord',
-      time: 'Il y a 2 min',
-      duration: '2 heures estimées',
-      status: 'active',
-      priority: 'high',
-      affectedVehicles: 500
-    },
-  ];
-
-  const [alertsList, setAlertsList] = useState(extendedAlerts);
-
-  const getAlertIcon = (type) => {
-    switch (type) {
-      case 'critical':
-        return AlertTriangle;
-      case 'warning':
-        return AlertCircle;
-      default:
-        return Info;
-    }
-  };
-
-  const getAlertStyle = (type) => {
-    switch (type) {
-      case 'critical':
-        return {
-          bg: 'bg-gradient-to-br from-red-50 to-red-100/50',
-          border: 'border-red-200',
-          iconBg: 'bg-red-100',
-          iconColor: 'text-red-600',
-          textColor: 'text-red-900',
-          badgeBg: 'bg-red-600',
-        };
-      case 'warning':
-        return {
-          bg: 'bg-gradient-to-br from-orange-50 to-orange-100/50',
-          border: 'border-orange-200',
-          iconBg: 'bg-orange-100',
-          iconColor: 'text-orange-600',
-          textColor: 'text-orange-900',
-          badgeBg: 'bg-orange-600',
-        };
-      default:
-        return {
-          bg: 'bg-gradient-to-br from-blue-50 to-blue-100/50',
-          border: 'border-blue-200',
-          iconBg: 'bg-blue-100',
-          iconColor: 'text-blue-600',
-          textColor: 'text-blue-900',
-          badgeBg: 'bg-blue-600',
-        };
-    }
-  };
-
-  const getPriorityBadge = (priority) => {
-    const styles = {
-      high: 'bg-red-100 text-red-700 border-red-300',
-      medium: 'bg-orange-100 text-orange-700 border-orange-300',
-      low: 'bg-blue-100 text-blue-700 border-blue-300',
-    };
-    return styles[priority] || styles.low;
-  };
-
-  const filteredAlerts = alertsList
-    .filter(alert => {
-      if (filterType !== 'all' && alert.type !== filterType) return false;
-      if (searchTerm && !alert.title.toLowerCase().includes(searchTerm.toLowerCase()) &&
-          !alert.location.toLowerCase().includes(searchTerm.toLowerCase())) return false;
-      return true;
-    })
-    .sort((a, b) => {
-      if (sortBy === 'priority') {
-        const priorityOrder = { high: 0, medium: 1, low: 2 };
-        return priorityOrder[a.priority] - priorityOrder[b.priority];
+  useEffect(() => {
+    const fetchAlerts = async () => {
+      try {
+        const res = await fetch("http://localhost:8000/alerts");
+        const data = await res.json();
+        setAlertsList(data);
+      } catch (error) {
+        console.error("Erreur lors du chargement des alertes :", error);
+      } finally {
+        setLoading(false);
       }
-      return 0;
-    });
+    };
 
-  const handleDismiss = (alertId) => {
-    setAlertsList(alertsList.filter(alert => alert.id !== alertId));
+    fetchAlerts();
+
+    const interval = setInterval(fetchAlerts, 30000);
+    return () => clearInterval(interval);
+  }, []);
+
+  if (loading) {
+    return (
+      <div className="p-10 text-center text-slate-600">
+        Chargement des alertes depuis HDFS...
+      </div>
+    );
+  }
+
+  const typeIcons = {
+    critical: {
+      color: "bg-red-100 text-red-600",
+      icon: (
+        <svg
+          className="w-6 h-6"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          viewBox="0 0 24 24"
+        >
+          <path d="M12 8v4m0 4h.01"></path>
+          <path d="M4.93 4.93l14.14 14.14"></path>
+        </svg>
+      ),
+    },
+    warning: {
+      color: "bg-yellow-100 text-yellow-600",
+      icon: (
+        <svg
+          className="w-6 h-6"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          viewBox="0 0 24 24"
+        >
+          <path d="M12 9v3m0 3h.01"></path>
+          <path d="M10 4l2-2 2 2m-2-2v6"></path>
+        </svg>
+      ),
+    },
+    info: {
+      color: "bg-blue-100 text-blue-600",
+      icon: (
+        <svg
+          className="w-6 h-6"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
+          <path d="M13 16h-1v-4h-1m1-4h.01"></path>
+        </svg>
+      ),
+    },
   };
 
-  const handleResolve = (alertId) => {
-    setAlertsList(alertsList.map(alert => 
-      alert.id === alertId ? { ...alert, status: 'resolved' } : alert
-    ));
+  const statusIcons = {
+    active: "bg-red-100 text-red-600",
+    ongoing: "bg-orange-100 text-orange-600",
+    resolved: "bg-green-100 text-green-600",
   };
 
-  const stats = {
-    total: alertsList.length,
-    critical: alertsList.filter(a => a.type === 'critical').length,
-    warning: alertsList.filter(a => a.type === 'warning').length,
-    info: alertsList.filter(a => a.type === 'info').length,
-    active: alertsList.filter(a => a.status === 'active').length,
+ 
+  const getAlertTitle = (alert) => {
+    if (alert.type === "critical") {
+      return ` Trafic Bloqué - ${alert.zone_name}`;
+    } else if (alert.type === "warning") {
+      return ` Trafic Dense - ${alert.zone_name}`;
+    } else {
+      return ` Ralentissement - ${alert.zone_name}`;
+    }
+  };
+
+  const getEstimatedDuration = (congestionLevel) => {
+    if (congestionLevel > 80) {
+      return "> 30 min";
+    } else if (congestionLevel > 50) {
+      return "15-30 min";
+    } else {
+      return "< 15 min";
+    }
   };
 
   return (
-    <div className="space-y-6">
-      {/* En-tête */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-3xl font-bold bg-gradient-to-r from-slate-900 to-slate-700 bg-clip-text text-transparent">
-            Gestion des Alertes
-          </h1>
-          <p className="text-slate-600 mt-1">Surveillance et gestion des incidents en temps réel</p>
-        </div>
-        
-        <div className="flex gap-3">
-          <button className="px-4 py-2 bg-white border border-slate-200 rounded-xl text-sm font-medium hover:bg-slate-50 transition-colors flex items-center gap-2">
-            <Archive className="w-4 h-4" />
-            Archivées
-          </button>
-          <button className="px-4 py-2 bg-blue-500 text-white rounded-xl text-sm font-medium hover:bg-blue-600 transition-colors flex items-center gap-2">
-            <Bell className="w-4 h-4" />
-            Notifications
-          </button>
-        </div>
-      </div>
+    <div className="p-6 bg-slate-900 min-h-screen text-slate-200">
+      <h1 className="text-3xl font-bold mb-6 text-white">Alertes Trafic</h1>
 
-      {/* Statistiques rapides */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-4">
-          <div className="text-2xl font-black text-slate-900">{stats.total}</div>
-          <div className="text-sm text-slate-600">Total</div>
-        </div>
-        <div className="bg-gradient-to-br from-red-50 to-red-100/50 rounded-xl border-2 border-red-200 p-4">
-          <div className="text-2xl font-black text-red-600">{stats.critical}</div>
-          <div className="text-sm text-red-700 font-medium">Critiques</div>
-        </div>
-        <div className="bg-gradient-to-br from-orange-50 to-orange-100/50 rounded-xl border-2 border-orange-200 p-4">
-          <div className="text-2xl font-black text-orange-600">{stats.warning}</div>
-          <div className="text-sm text-orange-700 font-medium">Warnings</div>
-        </div>
-        <div className="bg-gradient-to-br from-blue-50 to-blue-100/50 rounded-xl border-2 border-blue-200 p-4">
-          <div className="text-2xl font-black text-blue-600">{stats.info}</div>
-          <div className="text-sm text-blue-700 font-medium">Info</div>
-        </div>
-        <div className="bg-gradient-to-br from-green-50 to-green-100/50 rounded-xl border-2 border-green-200 p-4">
-          <div className="text-2xl font-black text-green-600">{stats.active}</div>
-          <div className="text-sm text-green-700 font-medium">Actives</div>
-        </div>
-      </div>
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Liste des alertes */}
+        <div className="lg:col-span-2 space-y-4">
+          {alertsList.length === 0 ? (
+            <div className="bg-slate-800 p-8 rounded-xl text-center">
+              <p className="text-slate-400">Aucune alerte pour le moment</p>
+            </div>
+          ) : (
+            alertsList.map((alert) => {
+              const icon = typeIcons[alert.type] || typeIcons.info;
 
-      {/* Barre de recherche et filtres */}
-      <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
-        <div className="flex flex-col md:flex-row gap-4">
-          {/* Recherche */}
-          <div className="flex-1 relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
-            <input
-              type="text"
-              placeholder="Rechercher une alerte..."
-              value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
-              className="w-full pl-11 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
-          </div>
-
-          {/* Filtre par type */}
-          <div className="flex gap-2">
-            {['all', 'critical', 'warning', 'info'].map((type) => (
-              <button
-                key={type}
-                onClick={() => setFilterType(type)}
-                className={`px-4 py-3 rounded-xl text-sm font-medium transition-all ${
-                  filterType === type
-                    ? 'bg-blue-500 text-white shadow-md'
-                    : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
-                }`}
-              >
-                {type === 'all' && 'Toutes'}
-                {type === 'critical' && 'Critiques'}
-                {type === 'warning' && 'Warnings'}
-                {type === 'info' && 'Info'}
-              </button>
-            ))}
-          </div>
-
-          {/* Tri */}
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value)}
-            className="px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-sm font-medium focus:outline-none focus:ring-2 focus:ring-blue-500"
-          >
-            <option value="recent">Plus récentes</option>
-            <option value="priority">Par priorité</option>
-          </select>
-        </div>
-      </div>
-
-      {/* Liste des alertes */}
-      <div className="space-y-4">
-        <AnimatePresence>
-          {filteredAlerts.map((alert, index) => {
-            const Icon = getAlertIcon(alert.type);
-            const style = getAlertStyle(alert.type);
-            
-            return (
-              <motion.div
-                key={alert.id}
-                initial={{ opacity: 0, x: -20 }}
-                animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: 20 }}
-                transition={{ delay: index * 0.05 }}
-                className={`${style.bg} ${style.border} border-2 rounded-2xl p-6 hover:shadow-xl transition-all duration-300`}
-              >
-                <div className="flex gap-4">
-                  {/* Icône et barre latérale */}
-                  <div className="flex flex-col items-center gap-2">
-                    <div className={`${style.iconBg} p-3 rounded-xl`}>
-                      <Icon className={`w-6 h-6 ${style.iconColor}`} />
-                    </div>
-                    {alert.type === 'critical' && (
-                      <motion.div
-                        animate={{ scale: [1, 1.2, 1] }}
-                        transition={{ duration: 2, repeat: Infinity }}
-                        className="w-2 h-2 bg-red-500 rounded-full"
-                      />
-                    )}
-                  </div>
-
-                  {/* Contenu principal */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between mb-3">
-                      <div className="flex-1">
-                        <div className="flex items-center gap-3 mb-2">
-                          <h4 className={`font-bold text-lg ${style.textColor}`}>
-                            {alert.title}
-                          </h4>
-                          <span className={`px-3 py-1 rounded-full text-xs font-bold border-2 ${getPriorityBadge(alert.priority)}`}>
-                            {alert.priority === 'high' && 'Haute priorité'}
-                            {alert.priority === 'medium' && 'Priorité moyenne'}
-                            {alert.priority === 'low' && 'Basse priorité'}
-                          </span>
-                          {alert.status === 'resolved' && (
-                            <span className="px-3 py-1 bg-green-100 text-green-700 rounded-full text-xs font-bold border-2 border-green-300">
-                              ✓ Résolue
-                            </span>
-                          )}
-                        </div>
-                        
-                        <div className="flex items-center gap-4 text-sm text-slate-600 mb-3">
-                          <div className="flex items-center gap-1">
-                            <MapPin className="w-4 h-4" />
-                            <span>{alert.location}</span>
-                          </div>
-                          <div className="flex items-center gap-1">
-                            <Clock className="w-4 h-4" />
-                            <span>{alert.time}</span>
-                          </div>
-                          {alert.affectedVehicles && (
-                            <div className="flex items-center gap-1">
-                              <TrendingUp className="w-4 h-4" />
-                              <span>{alert.affectedVehicles} véhicules</span>
-                            </div>
-                          )}
-                        </div>
-
-                        {alert.duration && (
-                          <div className={`inline-flex items-center gap-2 px-3 py-1 rounded-lg ${style.iconBg} text-sm font-medium`}>
-                            <Clock className="w-4 h-4" />
-                            Durée: {alert.duration}
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Actions */}
-                      <div className="flex gap-2 ml-4">
-                        {alert.status !== 'resolved' && (
-                          <button
-                            onClick={() => handleResolve(alert.id)}
-                            className="p-2 bg-green-100 hover:bg-green-200 text-green-700 rounded-lg transition-colors"
-                            title="Marquer comme résolue"
-                          >
-                            <Check className="w-5 h-5" />
-                          </button>
-                        )}
-                        <button
-                          onClick={() => handleDismiss(alert.id)}
-                          className="p-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg transition-colors"
-                          title="Ignorer"
-                        >
-                          <X className="w-5 h-5" />
-                        </button>
-                      </div>
+              return (
+                <div
+                  key={alert.id}
+                  className="bg-slate-800 p-5 rounded-xl shadow-lg hover:bg-slate-700 transition"
+                >
+                  <div className="flex items-start gap-4">
+                    {/* Icône type */}
+                    <div className={`p-3 rounded-full ${icon.color}`}>
+                      {icon.icon}
                     </div>
 
-                    {/* Barre de progression pour alertes critiques */}
-                    {alert.type === 'critical' && alert.status === 'active' && (
-                      <div className="mt-4">
-                        <div className="h-2 bg-red-200 rounded-full overflow-hidden">
-                          <motion.div
-                            className="h-full bg-gradient-to-r from-red-500 to-red-600 rounded-full"
-                            animate={{
-                              x: ['-100%', '100%'],
-                            }}
-                            transition={{
-                              duration: 2,
-                              repeat: Infinity,
-                              ease: 'linear',
-                            }}
-                          />
-                        </div>
-                      </div>
-                    )}
+                    {/* Infos alerte */}
+                    <div className="flex-1">
+                      <h2 className="text-xl font-semibold mb-1">
+                        {getAlertTitle(alert)}
+                      </h2>
+
+                      <p className="text-slate-400 mb-1">
+                         <span className="text-slate-300">{alert.zone_name}</span>
+                      </p>
+
+                      <p className="text-slate-400 mb-1">
+                         Congestion:{" "}
+                        <span className="text-slate-300 font-semibold">
+                          {alert.congestion_level?.toFixed(1)}%
+                        </span>
+                      </p>
+
+                      <p className="text-slate-400 mb-1">
+                         Vitesse actuelle:{" "}
+                        <span className="text-slate-300 font-semibold">
+                          {alert.current_speed?.toFixed(0)} km/h
+                        </span>
+                      </p>
+
+                      <p className="text-slate-400 mb-2">
+                        {" "}
+                        <span className="text-slate-300">
+                          {new Date(alert.time).toLocaleString("fr-FR")}
+                        </span>
+                      </p>
+
+                      <p className="text-slate-400">
+                         Durée estimée:{" "}
+                        <span className="text-slate-300">
+                          {getEstimatedDuration(alert.congestion_level)}
+                        </span>
+                      </p>
+                    </div>
+
+                    {/* Badge statut */}
+                    <div
+                      className={`text-xs px-3 py-1 rounded-full font-semibold ${
+                        statusIcons[alert.status] ||
+                        "bg-slate-700 text-slate-300"
+                      }`}
+                    >
+                      {alert.status.toUpperCase()}
+                    </div>
                   </div>
                 </div>
-              </motion.div>
-            );
-          })}
-        </AnimatePresence>
+              );
+            })
+          )}
+        </div>
 
-        {filteredAlerts.length === 0 && (
-          <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-12 text-center">
-            <div className="inline-flex items-center justify-center w-20 h-20 bg-green-100 rounded-full mb-4">
-              <Check className="w-10 h-10 text-green-600" />
-            </div>
-            <h3 className="text-xl font-bold text-slate-900 mb-2">Aucune alerte</h3>
-            <p className="text-slate-600">
-              {searchTerm || filterType !== 'all' 
-                ? 'Aucune alerte ne correspond à vos critères de recherche.'
-                : 'Tout fonctionne normalement. Il n\'y a aucune alerte active.'}
-            </p>
+        {/* Statistiques*/}
+        <div className="bg-slate-800 p-6 rounded-xl shadow-lg space-y-6">
+          <h2 className="text-xl font-bold text-white">Statistiques</h2>
+
+          {/* Total */}
+          <div className="bg-slate-700 p-4 rounded-lg">
+            <p className="text-slate-400 text-sm">Total des alertes</p>
+            <p className="text-3xl font-bold text-white">{alertsList.length}</p>
           </div>
-        )}
-      </div>
 
-      {/* Timeline des alertes récentes */}
-      <div className="bg-white rounded-2xl shadow-lg border border-slate-200 p-6">
-        <h3 className="text-xl font-bold text-slate-900 mb-6 flex items-center gap-2">
-          <Clock className="w-5 h-5 text-blue-600" />
-          Chronologie
-        </h3>
-        <div className="space-y-4">
-          {alertsList.slice(0, 5).map((alert, index) => (
-            <div key={alert.id} className="flex items-center gap-4">
-              <div className="flex flex-col items-center">
-                <div className={`w-3 h-3 rounded-full ${
-                  alert.type === 'critical' ? 'bg-red-500' :
-                  alert.type === 'warning' ? 'bg-orange-500' :
-                  'bg-blue-500'
-                }`}></div>
-                {index < alertsList.slice(0, 5).length - 1 && (
-                  <div className="w-0.5 h-12 bg-slate-200"></div>
-                )}
+          {/* Types */}
+          <div className="space-y-3">
+            <h3 className="text-lg font-semibold pb-2 border-b border-slate-700">
+              Par type
+            </h3>
+
+            <div className="flex justify-between items-center">
+              <span className="flex items-center gap-2">
+                <span className="w-3 h-3 bg-red-500 rounded-full"></span>
+                Critiques
+              </span>
+              <span className="font-bold text-red-400">
+                {alertsList.filter((a) => a.type === "critical").length}
+              </span>
+            </div>
+
+            <div className="flex justify-between items-center">
+              <span className="flex items-center gap-2">
+                <span className="w-3 h-3 bg-yellow-500 rounded-full"></span>
+                Avertissements
+              </span>
+              <span className="font-bold text-yellow-400">
+                {alertsList.filter((a) => a.type === "warning").length}
+              </span>
+            </div>
+
+            <div className="flex justify-between items-center">
+              <span className="flex items-center gap-2">
+                <span className="w-3 h-3 bg-blue-500 rounded-full"></span>
+                Infos
+              </span>
+              <span className="font-bold text-blue-400">
+                {alertsList.filter((a) => a.type === "info").length}
+              </span>
+            </div>
+          </div>
+
+          {/* Statuts */}
+          <div className="pt-4 border-t border-slate-700">
+            <h3 className="text-lg font-semibold pb-3">Par statut</h3>
+
+            <div className="space-y-2">
+              <div className="flex justify-between items-center">
+                <span> Actives</span>
+                <span className="font-bold">
+                  {alertsList.filter((a) => a.status === "active").length}
+                </span>
               </div>
-              <div className="flex-1 pb-4">
-                <div className="font-semibold text-slate-900">{alert.title}</div>
-                <div className="text-sm text-slate-600">{alert.location}</div>
-                <div className="text-xs text-slate-500 mt-1">{alert.time}</div>
+
+              <div className="flex justify-between items-center">
+                <span> En cours</span>
+                <span className="font-bold">
+                  {alertsList.filter((a) => a.status === "ongoing").length}
+                </span>
+              </div>
+
+              <div className="flex justify-between items-center">
+                <span> Résolues</span>
+                <span className="font-bold">
+                  {alertsList.filter((a) => a.status === "resolved").length}
+                </span>
               </div>
             </div>
-          ))}
+          </div>
+
+          {/* Vitesse moyenne */}
+          <div className="pt-4 border-t border-slate-700">
+            <h3 className="text-lg font-semibold pb-3">Vitesse moyenne</h3>
+            <div className="bg-slate-700 p-4 rounded-lg text-center">
+              <p className="text-2xl font-bold text-white">
+                {alertsList.length > 0
+                  ? (
+                      alertsList.reduce(
+                        (acc, alert) => acc + (alert.current_speed || 0),
+                        0
+                      ) / alertsList.length
+                    ).toFixed(1)
+                  : 0}
+                <span className="text-sm text-slate-400 ml-1">km/h</span>
+              </p>
+            </div>
+          </div>
         </div>
       </div>
     </div>

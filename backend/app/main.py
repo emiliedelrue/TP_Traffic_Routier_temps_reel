@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from app.api.routes import zones, aggregates
+from app.api.routes import zones, aggregates, alerts
 from app.core.config import settings
 from app.db.database import engine, Base
 
@@ -22,6 +22,7 @@ app.add_middleware(
 
 app.include_router(zones.router, prefix="/api/zones", tags=["zones"])
 app.include_router(aggregates.router, prefix="/api/aggregates", tags=["aggregates"])
+app.include_router(alerts.router, prefix="/alerts", tags=["alerts"])
 
 @app.get("/")
 def root():
