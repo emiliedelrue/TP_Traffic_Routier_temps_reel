@@ -61,11 +61,12 @@ class CSVToHDFSDocker:
                     timestamp = now - timedelta(days=days-day, hours=24-hour)
                     
                     if 7 <= hour <= 9 or 17 <= hour <= 19:
-                        base_speed = float(25 + (hash(zone['zone_id']) % 20))
+                        base_speed = float(10 + (hash(zone['zone_id']) % 15))      
                     elif 22 <= hour or hour <= 6:
-                        base_speed = float(55 + (hash(zone['zone_id']) % 15))
+                        base_speed = float(45 + (hash(zone['zone_id']) % 10))      
                     else:
-                        base_speed = float(40 + (hash(zone['zone_id']) % 15))
+                        base_speed = float(25 + (hash(zone['zone_id']) % 20))      
+
                     
                     free_flow = float(60.0)
                     congestion = float((1 - base_speed / free_flow) * 100)
@@ -97,7 +98,7 @@ class CSVToHDFSDocker:
     
     def write_to_hdfs_partitioned(self, df):
         """Écrit dans HDFS avec partitionnement"""
-        print(f"\n💾 Écriture dans HDFS (partitionné)...")
+        print(f"\n Écriture dans HDFS (partitionné)...")
         
         df = df.repartition(2)
         
@@ -154,7 +155,74 @@ class CSVToHDFSDocker:
         except Exception as e:
             print(f" Erreur lors de l'écriture des agrégats: {str(e)}")
             raise
-    
+
+    def generate_alerts(self, df):
+        """Détecte des alertes trafic à partir des données historiques"""
+
+        print("\n Génération d'alertes trafic...")
+
+        from pyspark.sql.functions import when, lit
+        import json
+
+        df_alerts = df.filter(
+            (col("congestion_level") > 70) | (col("current_speed") < 20)
+        )
+
+        df_alerts = df_alerts.withColumn(
+            "type",
+            when(col("congestion_level") > 90, lit("critical"))
+            .when(col("congestion_level") > 70, lit("warning"))
+            .otherwise(lit("info"))
+        )
+
+        df_alerts = df_alerts.withColumn(
+            "status",
+            when(col("congestion_level") > 90, lit("active"))
+            .when(col("congestion_level") > 70, lit("ongoing"))
+            .otherwise(lit("resolved"))
+        )
+
+        df_alerts = df_alerts.select(
+            col("zone_id").alias("id"),
+            "zone_name",
+            "type",
+            "status",
+            col("timestamp").alias("time"),
+            col("congestion_level"),
+            col("current_speed"),
+            "latitude",
+            "longitude"
+        )
+
+        alerts = df_alerts.toPandas().to_dict(orient="records")
+        print(f" {len(alerts)} alertes détectées")
+
+        alerts_path = "/data/alerts.json"
+
+        try:
+            hdfs = self.spark._jvm.org.apache.hadoop.fs.FileSystem.get(
+                self.spark._jsc.hadoopConfiguration()
+            )
+            hdfs.delete(self.spark._jvm.org.apache.hadoop.fs.Path(alerts_path), True)
+        except:
+            pass
+
+        tmp_path = "/tmp/alerts.json"
+        with open(tmp_path, "w") as f:
+            f.write(json.dumps(alerts, indent=4, default=str))
+
+        hdfs = self.spark._jvm.org.apache.hadoop.fs.FileSystem.get(
+            self.spark._jsc.hadoopConfiguration()
+        )
+        hdfs.copyFromLocalFile(False, True,
+            self.spark._jvm.org.apache.hadoop.fs.Path(tmp_path),
+            self.spark._jvm.org.apache.hadoop.fs.Path(alerts_path)
+        )
+
+        print(f" Alertes écrites dans HDFS: {alerts_path}")
+
+        return alerts
+
     def run(self, days=7):
         print(f"\n{'='*60}")
         print(f" Import Données Historiques → HDFS (Docker)")
@@ -171,6 +239,9 @@ class CSVToHDFSDocker:
         
         print(f"\n Aperçu agrégats:")
         df_agg.show(5)
+        
+        alerts = self.generate_alerts(df)
+        print(f"\n {len(alerts)} alertes générées et sauvegardées")
         
         print(f"\n{'='*60}")
         print(f" Import terminé avec succès!")
@@ -189,3 +260,4 @@ if __name__ == "__main__":
     
     importer = CSVToHDFSDocker(hdfs_path=args.hdfs_path)
     importer.run(days=args.days)
+

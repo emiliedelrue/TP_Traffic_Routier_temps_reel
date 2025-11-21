@@ -5,7 +5,6 @@ import { MapPin, Info, TrendingUp, Car } from 'lucide-react';
 import 'leaflet/dist/leaflet.css';
 import L from 'leaflet';
 
-// Fix pour les icônes Leaflet
 delete L.Icon.Default.prototype._getIconUrl;
 L.Icon.Default.mergeOptions({
   iconRetinaUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-icon-2x.png',
@@ -17,7 +16,6 @@ const MapView = ({ zones }) => {
   const [selectedZone, setSelectedZone] = useState(null);
   const [mapType, setMapType] = useState('streets');
 
-  // Vérifier que les zones ont des coordonnées valides
   const validZones = zones.filter(zone => 
     zone.coordinates && 
     zone.coordinates.length === 2 &&
@@ -25,14 +23,12 @@ const MapView = ({ zones }) => {
     !isNaN(zone.coordinates[1])
   );
 
-  // Couleur selon le niveau de congestion
   const getMarkerColor = (congestion) => {
-    if (congestion > 70) return '#ef4444'; // Rouge
-    if (congestion > 40) return '#f59e0b'; // Orange
-    return '#22c55e'; // Vert
+    if (congestion > 70) return '#ef4444'; 
+    if (congestion > 40) return '#f59e0b'; 
+    return '#22c55e'; 
   };
 
-  // Créer une icône personnalisée
   const createCustomIcon = (congestion) => {
     const color = getMarkerColor(congestion);
     return L.divIcon({
@@ -59,9 +55,8 @@ const MapView = ({ zones }) => {
     dark: 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png',
   };
 
-  // Calculer le centre de la carte basé sur les zones
   const getMapCenter = () => {
-    if (validZones.length === 0) return [48.8566, 2.3522]; // Paris par défaut
+    if (validZones.length === 0) return [48.8566, 2.3522]; 
     
     const avgLat = validZones.reduce((sum, zone) => sum + zone.coordinates[0], 0) / validZones.length;
     const avgLon = validZones.reduce((sum, zone) => sum + zone.coordinates[1], 0) / validZones.length;
@@ -69,12 +64,10 @@ const MapView = ({ zones }) => {
     return [avgLat, avgLon];
   };
 
-  // Calculer le zoom approprié
   const getMapZoom = () => {
     if (validZones.length === 0) return 6;
     if (validZones.length === 1) return 12;
     
-    // Calculer la distance max entre les zones
     let maxDist = 0;
     for (let i = 0; i < validZones.length; i++) {
       for (let j = i + 1; j < validZones.length; j++) {
@@ -86,7 +79,6 @@ const MapView = ({ zones }) => {
       }
     }
     
-    // Adapter le zoom selon la distance
     if (maxDist < 0.1) return 11;
     if (maxDist < 0.5) return 10;
     if (maxDist < 1) return 9;
@@ -94,7 +86,6 @@ const MapView = ({ zones }) => {
     return 7;
   };
 
-  // Si aucune zone valide
   if (validZones.length === 0) {
     return (
       <div className="space-y-6">

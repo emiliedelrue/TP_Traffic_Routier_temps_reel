@@ -12,9 +12,8 @@ const Dashboard = ({ zones, stats, alerts }) => {
     peakHours: stats.peakHours,
   };
 
-  // Données pour le graphique en aire
   const chartData = zones.map(zone => ({
-    name: zone.name.split(' ')[0], // Raccourcir les noms
+    name: zone.name.split(' ')[0], 
     congestion: zone.congestion,
     vehicles: zone.vehicles,
   }));

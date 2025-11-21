@@ -2,6 +2,7 @@
 """
 Producteur Kafka - API TomTom Traffic
 Récupère les données de trafic en temps réel et les envoie à Kafka
++ Génération d'alertes en temps réel
 """
 
 import requests
@@ -17,7 +18,8 @@ load_dotenv()
 
 TOMTOM_API_KEY = os.getenv('TOMTOM_API_KEY', 'VOTRE_CLE_API')
 KAFKA_BOOTSTRAP_SERVERS = os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092')
-KAFKA_TOPIC = os.getenv('KAFKA_TOPIC_RAW', 'traffic_raw')
+KAFKA_TOPIC_RAW = os.getenv('KAFKA_TOPIC_RAW', 'traffic_raw')
+KAFKA_TOPIC_ALERTS = os.getenv('KAFKA_TOPIC_ALERTS', 'traffic_alerts')
 
 ZONES = [
     {"name": "Champs-Élysées", "lat": 48.8698, "lon": 2.3078},
@@ -38,6 +40,8 @@ class TomTomProducer:
             key_serializer=lambda k: k.encode('utf-8') if k else None
         )
         print(f" Producteur Kafka connecté: {KAFKA_BOOTSTRAP_SERVERS}")
+        print(f" Topic données: {KAFKA_TOPIC_RAW}")
+        print(f" Topic alertes: {KAFKA_TOPIC_ALERTS}")
     
     def fetch_traffic_data(self, lat, lon):
         """Récupère les données de trafic depuis TomTom API"""
@@ -78,10 +82,84 @@ class TomTomProducer:
             'source': 'tomtom_api'
         }
     
-    def send_to_kafka(self, message, key):
+    def detect_alert(self, message):
+        """Détecte si une alerte doit être générée"""
+        if not message:
+            return None
+        
+        current_speed = message['current_speed']
+        free_flow_speed = message['free_flow_speed']
+        
+        if free_flow_speed > 0:
+            congestion_level = ((free_flow_speed - current_speed) / free_flow_speed) * 100
+        else:
+            congestion_level = 0
+        
+        if congestion_level > 70 or current_speed < 20:
+            return self.format_alert(message, congestion_level)
+        
+        return None
+    
+    def format_alert(self, message, congestion_level):
+        """Formate une alerte pour Kafka et le frontend"""
+        
+        if congestion_level > 90 or message['current_speed'] < 10:
+            alert_type = "critical"
+            status = "active"
+        elif congestion_level > 70 or message['current_speed'] < 20:
+            alert_type = "warning"
+            status = "ongoing"
+        else:
+            alert_type = "info"
+            status = "resolved"
+        
+        if alert_type == "critical":
+            title = f" Trafic Bloqué - {message['zone_name']}"
+        elif alert_type == "warning":
+            title = f" Trafic Dense - {message['zone_name']}"
+        else:
+            title = f" Ralentissement - {message['zone_name']}"
+        
+        if congestion_level > 80:
+            duration = "> 30 min"
+        elif congestion_level > 50:
+            duration = "15-30 min"
+        else:
+            duration = "< 15 min"
+        
+        zone_id = message['zone_id']
+        if 'peripherique' in zone_id:
+            affected_vehicles = "~500 véhicules"
+        elif 'champs' in zone_id or 'concorde' in zone_id:
+            affected_vehicles = "~300 véhicules"
+        else:
+            affected_vehicles = "~200 véhicules"
+        
+        return {
+            'id': f"{message['zone_id']}_{int(time.time())}",
+            'zone_name': message['zone_name'],
+            'title': title,
+            'location': message['zone_name'],
+            'type': alert_type,
+            'status': status,
+            'time': message['timestamp'],
+            'congestion_level': round(congestion_level, 2),
+            'current_speed': message['current_speed'],
+            'free_flow_speed': message['free_flow_speed'],
+            'latitude': message['latitude'],
+            'longitude': message['longitude'],
+            'duration': duration,
+            'affectedVehicles': affected_vehicles,
+            'source': 'tomtom_realtime'
+        }
+    
+    def send_to_kafka(self, message, key, topic=None):
         """Envoie le message à Kafka"""
+        if topic is None:
+            topic = KAFKA_TOPIC_RAW
+            
         try:
-            future = self.producer.send(KAFKA_TOPIC, value=message, key=key)
+            future = self.producer.send(topic, value=message, key=key)
             result = future.get(timeout=10)
             return result
         except Exception as e:
@@ -96,16 +174,19 @@ class TomTomProducer:
         print(f" Mode: {'Continu' if continuous else 'Unique'}\n")
         
         iteration = 0
+        total_alerts = 0
         
         try:
             while True:
                 iteration += 1
+                iteration_alerts = 0
+                
                 print(f"{'='*60}")
                 print(f"[{datetime.now().strftime('%H:%M:%S')}] Itération #{iteration}")
                 print(f"{'='*60}")
                 
                 for zone in ZONES:
-                    print(f"\n📡 Zone: {zone['name']}")
+                    print(f"\n Zone: {zone['name']}")
                     
                     traffic_data = self.fetch_traffic_data(zone['lat'], zone['lon'])
                     
@@ -113,15 +194,32 @@ class TomTomProducer:
                         message = self.format_message(zone, traffic_data)
                         
                         if message:
-                            result = self.send_to_kafka(message, message['zone_id'])
+                            # Envoyer les données brutes
+                            result = self.send_to_kafka(message, message['zone_id'], KAFKA_TOPIC_RAW)
                             
                             if result:
-                                print(f"   Envoyé: {message['current_speed']:.1f} km/h")
-                                print(f"   Partition: {result.partition}, Offset: {result.offset}")
+                                print(f"  Données envoyées: {message['current_speed']:.1f} km/h")
+                                
+                                # Détecter et envoyer les alertes
+                                alert = self.detect_alert(message)
+                                if alert:
+                                    alert_result = self.send_to_kafka(
+                                        alert, 
+                                        alert['id'], 
+                                        KAFKA_TOPIC_ALERTS
+                                    )
+                                    if alert_result:
+                                        iteration_alerts += 1
+                                        total_alerts += 1
+                                        print(f"  ALERTE détectée: {alert['type'].upper()}")
+                                        print(f"     Congestion: {alert['congestion_level']:.1f}%")
+                                        print(f"     Vitesse: {alert['current_speed']:.0f} km/h")
+                                else:
+                                    print(f"  Trafic normal")
                             else:
-                                print(f"   Échec envoi")
+                                print(f"  Échec envoi données")
                         else:
-                            print(f"    Données invalides")
+                            print(f"   Données invalides")
                     else:
                         print(f"   Échec récupération API")
                     
@@ -129,20 +227,21 @@ class TomTomProducer:
                 
                 print(f"\n{'='*60}")
                 print(f"Itération #{iteration} terminée")
+                print(f" Alertes cette itération: {iteration_alerts}")
+                print(f" Total alertes: {total_alerts}")
                 print(f"{'='*60}\n")
                 
                 if not continuous:
                     break
                 
-                # Attendre avant la prochaine itération
-                print(f"⏳ Attente {interval}s avant prochaine itération...\n")
+                print(f" Attente {interval}s avant prochaine itération...\n")
                 time.sleep(interval)
                 
         except KeyboardInterrupt:
             print("\n\n Arrêt du producteur...")
         finally:
             self.producer.close()
-            print(" Producteur fermé proprement\n")
+            print("Producteur fermé proprement\n")
 
 if __name__ == "__main__":
     import argparse
