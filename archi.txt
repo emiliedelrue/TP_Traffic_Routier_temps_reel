@@ -1,58 +1,81 @@
-traffic-monitor/
-├── backend/                      # FastAPI
-│   ├── app/
-│   │   ├── main.py              # Point d'entrée FastAPI
-│   │   ├── api/
-│   │   │   ├── routes/
-│   │   │   │   ├── zones.py     # Routes zones
-│   │   │   │   ├── aggregates.py
-│   │   │   │   └── websocket.py
-│   │   │   └── dependencies.py
-│   │   ├── core/
-│   │   │   ├── config.py        # Configuration
-│   │   │   └── spark_client.py  # Client Spark
-│   │   ├── models/
-│   │   │   └── schemas.py       # Pydantic models
-│   │   └── services/
-│   │       ├── kafka_consumer.py
-│   │       └── hdfs_reader.py
-│   ├── requirements.txt
-│   └── Dockerfile
-│
-├── frontend/                     # React
-│   ├── public/
-│   ├── src/
-│   │   ├── components/
-│   │   │   ├── Map/
-│   │   │   │   ├── TrafficMap.jsx
-│   │   │   │   └── MarkerCluster.jsx
-│   │   │   ├── Charts/
-│   │   │   │   ├── CongestChart.jsx
-│   │   │   │   ├── TimelineChart.jsx
-│   │   │   │   └── HeatmapChart.jsx
-│   │   │   ├── Dashboard/
-│   │   │   │   ├── KPICards.jsx
-│   │   │   │   └── AlertPanel.jsx
-│   │   │   └── Layout/
-│   │   │       └── MainLayout.jsx
-│   │   ├── services/
-│   │   │   ├── api.js           # API calls
-│   │   │   └── websocket.js     # WebSocket
-│   │   ├── store/
-│   │   │   └── trafficStore.js  # Zustand store
-│   │   ├── utils/
-│   │   │   └── helpers.js
-│   │   ├── App.jsx
-│   │   └── main.jsx
-│   ├── package.json
-│   ├── vite.config.js
-│   ├── tailwind.config.js
-│   └── Dockerfile
-│
-├── spark/                        # Jobs Spark
-│   ├── streaming_etl.py
-│   ├── batch_aggregates.py
-│   └── kafka_producer.py
-│
-├── docker-compose.yml            # Infrastructure complète
-└── README.md
+┌─────────────────────────────────────────────────────────────────┐
+│                        SOURCES DE DONNÉES                        │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                    ┌─────────┴─────────┐
+                    │                   │
+            ┌───────▼────────┐  ┌──────▼───────┐
+            │  TomTom API    │  │ Générateur   │
+            │  (Temps Réel)  │  │ (Simulation) │
+            └───────┬────────┘  └──────┬───────┘
+                    │                   │
+                    └─────────┬─────────┘
+                              │
+┌─────────────────────────────▼─────────────────────────────────┐
+│                      INGESTION (Speed Layer)                   │
+│  ┌──────────────────────────────────────────────────────┐    │
+│  │  Kafka Producer (Python)                              │    │
+│  │  - Collecte données TomTom toutes les 60s            │    │
+│  │  - Publie dans Kafka topic: traffic_raw              │    │
+│  └──────────────────────────────────────────────────────┘    │
+└───────────────────────────────────┬───────────────────────────┘
+                                    │
+┌───────────────────────────────────▼───────────────────────────┐
+│                    MESSAGE BROKER (Kafka)                      │
+│  ┌──────────────────────────────────────────────────────┐    │
+│  │  Apache Kafka + Zookeeper                             │    │
+│  │  - Topic: traffic_raw                                 │    │
+│  │  - Partition: 1                                       │    │
+│  │  - Retention: 7 jours                                 │    │
+│  └──────────────────────────────────────────────────────┘    │
+└───────────────────────────────────┬───────────────────────────┘
+                                    │
+                    ┌───────────────┴───────────────┐
+                    │                               │
+┌───────────────────▼──────────┐  ┌────────────────▼─────────────┐
+│  TRAITEMENT TEMPS RÉEL       │  │  TRAITEMENT BATCH             │
+│  (Speed Layer)               │  │  (Batch Layer)                │
+│  ┌─────────────────────────┐│  │  ┌──────────────────────────┐│
+│  │ Spark Streaming         ││  │  │ Script d'import          ││
+│  │ - Lit Kafka             ││  │  │ - Génère données         ││
+│  │ - Nettoie données       ││  │  │ - Écrit dans HDFS        ││
+│  │ - Écrit PostgreSQL      ││  │  │ - Crée agrégats          ││
+│  │ - Écrit HDFS (append)   ││  │  └──────────────────────────┘│
+│  └─────────────────────────┘│  │                               │
+└──────────────┬───────────────┘  └────────────┬──────────────────┘
+               │                               │
+               │  ┌────────────────────────────┘
+               │  │
+┌──────────────▼──▼──────────────────────────────────────────────┐
+│                    COUCHE DE STOCKAGE                           │
+│  ┌─────────────────────┐  ┌──────────────────────────────┐   │
+│  │   PostgreSQL        │  │   HDFS (Hadoop)              │   │
+│  │   (Temps Réel)      │  │   (Historique)               │   │
+│  │   - zones           │  │   - /traffic/clean           │   │
+│  │   - traffic_data    │  │   - /traffic/aggregates      │   │
+│  │   - agrégats        │  │   - Format: Parquet          │   │
+│  └─────────────────────┘  └──────────────────────────────┘   │
+└────────────────────────────────┬────────────────────────────────┘
+                                 │
+┌────────────────────────────────▼────────────────────────────────┐
+│                      COUCHE API (FastAPI)                        │
+│  ┌──────────────────────────────────────────────────────┐      │
+│  │  Backend Python FastAPI                               │      │
+│  │  - GET /api/zones/live (PostgreSQL)                   │      │
+│  │  - GET /api/zones/weekly-data?days=7 (HDFS+Spark)     │      │
+│  │  - GET /api/zones/hourly-distribution?days=7 (HDFS)   │      │
+│  │  - GET /api/zones/hdfs-stats (HDFS)                   │      │
+│  │  - WebSocket /ws/traffic (Temps Réel)                 │      │
+│  └──────────────────────────────────────────────────────┘      │
+└────────────────────────────────┬────────────────────────────────┘
+                                 │
+┌────────────────────────────────▼────────────────────────────────┐
+│                    COUCHE PRÉSENTATION                           │
+│  ┌──────────────────────────────────────────────────────┐      │
+│  │  Frontend React + Vite                                │      │
+│  │  - Dashboard Temps Réel                               │      │
+│  │  - Carte Interactive (Leaflet)                        │      │
+│  │  - Analytics (Recharts)                               │      │
+│  │  - WebSocket Client                                   │      │
+│  └──────────────────────────────────────────────────────┘      │
+└─────────────────────────────────────────────────────────────────┘

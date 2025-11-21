@@ -15,12 +15,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-# Configuration
 TOMTOM_API_KEY = os.getenv('TOMTOM_API_KEY', 'VOTRE_CLE_API')
 KAFKA_BOOTSTRAP_SERVERS = os.getenv('KAFKA_BOOTSTRAP_SERVERS', 'localhost:9092')
 KAFKA_TOPIC = os.getenv('KAFKA_TOPIC_RAW', 'traffic_raw')
 
-# Zones à surveiller (Paris et région)
 ZONES = [
     {"name": "Champs-Élysées", "lat": 48.8698, "lon": 2.3078},
     {"name": "Périphérique Nord", "lat": 48.8975, "lon": 2.3397},
@@ -39,7 +37,7 @@ class TomTomProducer:
             value_serializer=lambda v: json.dumps(v).encode('utf-8'),
             key_serializer=lambda k: k.encode('utf-8') if k else None
         )
-        print(f"✅ Producteur Kafka connecté: {KAFKA_BOOTSTRAP_SERVERS}")
+        print(f" Producteur Kafka connecté: {KAFKA_BOOTSTRAP_SERVERS}")
     
     def fetch_traffic_data(self, lat, lon):
         """Récupère les données de trafic depuis TomTom API"""
@@ -56,7 +54,7 @@ class TomTomProducer:
             response.raise_for_status()
             return response.json()
         except requests.exceptions.RequestException as e:
-            print(f"❌ Erreur API TomTom: {e}")
+            print(f" Erreur API TomTom: {e}")
             return None
     
     def format_message(self, zone, traffic_data):
@@ -87,15 +85,15 @@ class TomTomProducer:
             result = future.get(timeout=10)
             return result
         except Exception as e:
-            print(f"❌ Erreur envoi Kafka: {e}")
+            print(f" Erreur envoi Kafka: {e}")
             return None
     
     def run(self, interval=60, continuous=True):
         """Boucle principale"""
-        print(f"\n🚀 Démarrage producteur TomTom → Kafka")
-        print(f"📍 Zones surveillées: {len(ZONES)}")
-        print(f"⏱️  Intervalle: {interval}s")
-        print(f"🔄 Mode: {'Continu' if continuous else 'Unique'}\n")
+        print(f"\n Démarrage producteur TomTom → Kafka")
+        print(f" Zones surveillées: {len(ZONES)}")
+        print(f"  Intervalle: {interval}s")
+        print(f" Mode: {'Continu' if continuous else 'Unique'}\n")
         
         iteration = 0
         
@@ -109,32 +107,28 @@ class TomTomProducer:
                 for zone in ZONES:
                     print(f"\n📡 Zone: {zone['name']}")
                     
-                    # Récupérer données TomTom
                     traffic_data = self.fetch_traffic_data(zone['lat'], zone['lon'])
                     
                     if traffic_data:
-                        # Formater message
                         message = self.format_message(zone, traffic_data)
                         
                         if message:
-                            # Envoyer à Kafka
                             result = self.send_to_kafka(message, message['zone_id'])
                             
                             if result:
-                                print(f"   ✅ Envoyé: {message['current_speed']:.1f} km/h")
-                                print(f"   📊 Partition: {result.partition}, Offset: {result.offset}")
+                                print(f"   Envoyé: {message['current_speed']:.1f} km/h")
+                                print(f"   Partition: {result.partition}, Offset: {result.offset}")
                             else:
-                                print(f"   ❌ Échec envoi")
+                                print(f"   Échec envoi")
                         else:
-                            print(f"   ⚠️  Données invalides")
+                            print(f"    Données invalides")
                     else:
-                        print(f"   ❌ Échec récupération API")
+                        print(f"   Échec récupération API")
                     
-                    # Pause entre zones pour ne pas surcharger l'API
                     time.sleep(2)
                 
                 print(f"\n{'='*60}")
-                print(f"✅ Itération #{iteration} terminée")
+                print(f"Itération #{iteration} terminée")
                 print(f"{'='*60}\n")
                 
                 if not continuous:
@@ -145,10 +139,10 @@ class TomTomProducer:
                 time.sleep(interval)
                 
         except KeyboardInterrupt:
-            print("\n\n🛑 Arrêt du producteur...")
+            print("\n\n Arrêt du producteur...")
         finally:
             self.producer.close()
-            print("✅ Producteur fermé proprement\n")
+            print(" Producteur fermé proprement\n")
 
 if __name__ == "__main__":
     import argparse
@@ -160,7 +154,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
     
     if not TOMTOM_API_KEY or TOMTOM_API_KEY == 'VOTRE_CLE_API':
-        print("❌ ERREUR: Clé API TomTom manquante!")
+        print(" ERREUR: Clé API TomTom manquante!")
         print("Définissez TOMTOM_API_KEY dans .env ou en variable d'environnement")
         print("\nObtenir une clé: https://developer.tomtom.com/")
         sys.exit(1)
