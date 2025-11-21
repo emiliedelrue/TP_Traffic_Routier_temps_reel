@@ -4,7 +4,6 @@ from app.api.routes import zones, aggregates
 from app.core.config import settings
 from app.db.database import engine, Base
 
-# Créer les tables
 Base.metadata.create_all(bind=engine)
 
 app = FastAPI(
@@ -13,7 +12,6 @@ app = FastAPI(
     version=settings.VERSION
 )
 
-# CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -22,7 +20,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Routes
 app.include_router(zones.router, prefix="/api/zones", tags=["zones"])
 app.include_router(aggregates.router, prefix="/api/aggregates", tags=["aggregates"])
 

@@ -1,32 +1,36 @@
 #!/usr/bin/env python3
 """
-Import données historiques CSV vers HDFS
-Simule des données historiques pour tester les agrégations
+Import données historiques vers HDFS - VERSION DOCKER
+À exécuter depuis le conteneur backend
 """
 
 from pyspark.sql import SparkSession
-from pyspark.sql.functions import col, lit, current_timestamp, rand, when
+from pyspark.sql.functions import col
 from pyspark.sql.types import StructType, StructField, StringType, DoubleType, TimestampType
 from datetime import datetime, timedelta
-import sys
 
-class CSVToHDFS:
+class CSVToHDFSDocker:
     def __init__(self, hdfs_path="/traffic"):
         self.spark = SparkSession.builder \
-            .appName("CSV_To_HDFS") \
-            .config("spark.hadoop.fs.defaultFS", "hdfs://localhost:9000") \
+            .appName("CSV_To_HDFS_Docker") \
+            .master("local[2]") \
+            .config("spark.hadoop.fs.defaultFS", "hdfs://namenode:9000") \
             .config("spark.hadoop.dfs.replication", "1") \
-            .config("spark.hadoop.dfs.client.block.write.replace-datanode-on-failure.policy", "NEVER") \
-            .config("spark.hadoop.dfs.client.block.write.replace-datanode-on-failure.enable", "false") \
+            .config("spark.hadoop.dfs.client.use.datanode.hostname", "true") \
+            .config("spark.hadoop.dfs.datanode.use.datanode.hostname", "true") \
+            .config("spark.sql.parquet.compression.codec", "snappy") \
+            .config("spark.sql.files.maxPartitionBytes", "64MB") \
+            .config("spark.sql.shuffle.partitions", "2") \
             .getOrCreate()
         
         self.hdfs_base_path = hdfs_path
-        print(f"✅ Spark Session créée")
-        print(f"📁 HDFS base path: {hdfs_path}")
+        print(f" Spark Session créée (Docker)")
+        print(f" NameNode: hdfs://namenode:9000")
+        print(f" HDFS base path: {hdfs_path}")
     
-    def generate_historical_data(self, days=30):
+    def generate_historical_data(self, days=7):
         """Génère des données historiques simulées"""
-        print(f"\n📊 Génération données historiques ({days} jours)...")
+        print(f"\n Génération données historiques ({days} jours)...")
         
         zones = [
             {"zone_id": "champs_elysees", "zone_name": "Champs-Élysées", "lat": 48.8698, "lon": 2.3078},
@@ -88,12 +92,15 @@ class CSVToHDFS:
                     ))
         
         df = self.spark.createDataFrame(data, schema)
-        print(f"✅ {df.count()} lignes générées")
+        print(f"{df.count()} lignes générées")
         return df
     
     def write_to_hdfs_partitioned(self, df):
         """Écrit dans HDFS avec partitionnement"""
-        print(f"\n💾 Écriture dans HDFS (partitionné)...")
+        print(f"\n Écriture dans HDFS (partitionné)...")
+        
+        # Réduire le nombre de partitions
+        df = df.repartition(2)
         
         df_partitioned = df \
             .withColumn("year", col("timestamp").cast("date").substr(1, 4)) \
@@ -102,17 +109,21 @@ class CSVToHDFS:
         
         output_path = f"{self.hdfs_base_path}/clean"
         
-        df_partitioned.write \
-            .mode("overwrite") \
-            .partitionBy("year", "month", "day") \
-            .parquet(output_path)
-        
-        print(f"✅ Données écrites dans: {output_path}")
-        return output_path
+        try:
+            df_partitioned.write \
+                .mode("overwrite") \
+                .partitionBy("year", "month", "day") \
+                .parquet(output_path)
+            
+            print(f"Données écrites dans: {output_path}")
+            return output_path
+        except Exception as e:
+            print(f"Erreur lors de l'écriture: {str(e)}")
+            raise
     
     def create_aggregates(self, df):
         """Crée des agrégats horaires"""
-        print(f"\n📈 Création agrégats horaires...")
+        print(f"\n Création agrégats horaires...")
         
         from pyspark.sql.functions import hour, date_format, avg, min, max, count
         
@@ -129,24 +140,30 @@ class CSVToHDFS:
             count("*").alias("nb_measures")
         )
         
+        df_hourly = df_hourly.repartition(1)
+        
         agg_path = f"{self.hdfs_base_path}/aggregates/hourly"
         
-        df_hourly.write \
-            .mode("overwrite") \
-            .partitionBy("date") \
-            .parquet(agg_path)
-        
-        print(f"✅ Agrégats écrits dans: {agg_path}")
-        return df_hourly
+        try:
+            df_hourly.write \
+                .mode("overwrite") \
+                .partitionBy("date") \
+                .parquet(agg_path)
+            
+            print(f"Agrégats écrits dans: {agg_path}")
+            return df_hourly
+        except Exception as e:
+            print(f"Erreur lors de l'écriture des agrégats: {str(e)}")
+            raise
     
-    def run(self, days=30):
+    def run(self, days=7):
         print(f"\n{'='*60}")
-        print(f"🚀 Import Données Historiques CSV → HDFS")
+        print(f"🚀 Import Données Historiques → HDFS (Docker)")
         print(f"{'='*60}")
         
         df = self.generate_historical_data(days)
         
-        print(f"\n📋 Aperçu des données:")
+        print(f"\nAperçu des données:")
         df.show(5, truncate=False)
         
         output_path = self.write_to_hdfs_partitioned(df)
@@ -157,7 +174,7 @@ class CSVToHDFS:
         df_agg.show(5)
         
         print(f"\n{'='*60}")
-        print(f"✅ Import terminé avec succès!")
+        print(f"Import terminé avec succès!")
         print(f"{'='*60}")
         
         self.spark.stop()
@@ -165,11 +182,11 @@ class CSVToHDFS:
 if __name__ == "__main__":
     import argparse
     
-    parser = argparse.ArgumentParser(description='Import CSV → HDFS')
-    parser.add_argument('--days', type=int, default=30)
-    parser.add_argument('--hdfs-path', type=str, default='/traffic')
+    parser = argparse.ArgumentParser(description='Import CSV → HDFS (Docker)')
+    parser.add_argument('--days', type=int, default=7, help='Nombre de jours de données à générer')
+    parser.add_argument('--hdfs-path', type=str, default='/traffic', help='Chemin de base dans HDFS')
     
     args = parser.parse_args()
     
-    importer = CSVToHDFS(hdfs_path=args.hdfs_path)
+    importer = CSVToHDFSDocker(hdfs_path=args.hdfs_path)
     importer.run(days=args.days)

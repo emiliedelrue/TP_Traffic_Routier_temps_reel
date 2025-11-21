@@ -11,7 +11,6 @@ const Alerts = ({ alerts: initialAlerts }) => {
   const [filterType, setFilterType] = useState('all');
   const [sortBy, setSortBy] = useState('recent');
 
-  // Alertes étendues avec plus de données
   const extendedAlerts = [
     ...initialAlerts,
     {
@@ -103,7 +102,6 @@ const Alerts = ({ alerts: initialAlerts }) => {
     return styles[priority] || styles.low;
   };
 
-  // Filtrage des alertes
   const filteredAlerts = alertsList
     .filter(alert => {
       if (filterType !== 'all' && alert.type !== filterType) return false;
@@ -116,7 +114,7 @@ const Alerts = ({ alerts: initialAlerts }) => {
         const priorityOrder = { high: 0, medium: 1, low: 2 };
         return priorityOrder[a.priority] - priorityOrder[b.priority];
       }
-      return 0; // 'recent' par défaut
+      return 0;
     });
 
   const handleDismiss = (alertId) => {
