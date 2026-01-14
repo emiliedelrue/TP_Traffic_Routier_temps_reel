@@ -1,5 +1,5 @@
-
 services:
+  # --- INFRASTRUCTURE STORAGE ---
   namenode:
     image: bde2020/hadoop-namenode:2.0.0-hadoop3.2.1-java8
     platform: linux/amd64
@@ -35,6 +35,7 @@ services:
     networks:           
       - traffic-network
 
+  # --- STREAMING INFRASTRUCTURE ---
   zookeeper:
     image: confluentinc/cp-zookeeper:7.5.0
     container_name: zookeeper
@@ -45,7 +46,6 @@ services:
       - "2181:2181"
     networks:
       - traffic-network
-
 
   kafka:
     image: confluentinc/cp-kafka:7.5.0
@@ -66,11 +66,11 @@ services:
       - traffic-network
     healthcheck:
       test: ["CMD", "kafka-topics", "--bootstrap-server", "localhost:9092", "--list"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
+      interval: 10s
+      timeout: 5s
+      retries: 10
 
-
+  # --- DATABASE ---
   postgres:
     image: postgres:15-alpine
     container_name: postgres
@@ -85,12 +85,12 @@ services:
     networks:
       - traffic-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
+      test: ["CMD-SHELL", "pg_isready -U postgres -d traffic"]
+      interval: 5s
       timeout: 5s
       retries: 5
 
-
+  # --- APPLICATION SERVICES ---
   backend:
     build:
       context: ./backend
@@ -101,6 +101,7 @@ services:
     environment:
       DATABASE_URL: postgresql://postgres:postgres@postgres:5432/traffic
       KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      PYTHONPATH: /app
     depends_on:
       kafka:
         condition: service_healthy
@@ -111,6 +112,45 @@ services:
     networks:
       - traffic-network
     command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+
+  # SERVICE CONSUMER : Enregistre les données Kafka -> Postgres/HDFS
+  consumer:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: traffic_consumer
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/traffic
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      PYTHONPATH: /app
+    depends_on:
+      kafka:
+        condition: service_healthy
+      postgres:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+    networks:
+      - traffic-network
+    command: python3 -u -m app.services.kafka_consumer
+
+  # SERVICE PRODUCER : Génère les données de trafic
+  producer:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: traffic_producer
+    environment:
+      KAFKA_BOOTSTRAP_SERVERS: kafka:29092
+      PYTHONPATH: /app
+    depends_on:
+      kafka:
+        condition: service_healthy
+    volumes:
+      - ./backend:/app
+    networks:
+      - traffic-network
+    command: python3 -u -m app.services.kafka_producer
 
   frontend:
     build:
