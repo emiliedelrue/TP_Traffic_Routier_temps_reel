@@ -1,29 +1,29 @@
-from pydantic_settings import BaseSettings
+from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
 
 class Settings(BaseSettings):
-    # Database
-    DATABASE_URL: str = "postgresql://postgres:postgres@localhost:5432/traffic"
+    # Configuration de la base de données (Utilisez le nom du service Docker)
+    DATABASE_URL: str = "postgresql://postgres:postgres@postgres:5432/traffic"
     
-    # Kafka
-    KAFKA_BOOTSTRAP_SERVERS: str = "localhost:9092"
-    KAFKA_TOPIC_RAW: str = "traffic_raw"
-    KAFKA_TOPIC_TRANSFORMED: str = "traffic_transformed"
+    # Configuration Kafka
+    KAFKA_BOOTSTRAP_SERVERS: str = "kafka:29092"
+    KAFKA_TOPIC: str = "traffic-data"
+    KAFKA_TOPIC_RAW: str = "traffic-data"
+    KAFKA_TOPIC_TRANSFORMED: str = "traffic-data"
     
-    # TomTom API
-    TOMTOM_API_KEY: Optional[str] = None
-    
-    # HDFS
-    HDFS_NAMENODE: str = "hdfs://localhost:9000"
+    # Configuration HDFS
+    HDFS_NAMENODE: str = "hdfs://namenode:9000"
     HDFS_BASE_PATH: str = "/traffic"
     
-    # App
-    ENVIRONMENT: str = "development"
+    # Métadonnées de l'application
     APP_NAME: str = "Traffic Monitor API"
     VERSION: str = "1.0.0"
-    
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
 
+    # Configuration Pydantic pour lire le fichier .env
+    model_config = SettingsConfigDict(
+        env_file=".env",
+        extra="ignore"
+    )
+
+# Indispensable : Instanciation pour l'exportation
 settings = Settings()

@@ -20,6 +20,16 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+@app.on_event("startup")
+async def startup_event():
+    # """Initialise HDFS au démarrage pour éviter le timeout de la première requête"""
+    # try:
+    #     from app.services.hdfs_service import hdfs_service
+    #     print(" HDFS Service pré-initialisé au démarrage")
+    # except Exception as e:
+    #     print(f" HDFS Service non disponible : {e}")
+    print("🚀 API démarrée. HDFS sera chargé à la première demande.")
+
 app.include_router(zones.router, prefix="/api/zones", tags=["zones"])
 app.include_router(aggregates.router, prefix="/api/aggregates", tags=["aggregates"])
 app.include_router(alerts.router, prefix="/alerts", tags=["alerts"])
