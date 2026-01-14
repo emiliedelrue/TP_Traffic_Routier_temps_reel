@@ -1701,3 +1701,8 @@ docker system prune -a --volumes
 
 ---
 
+docker-compose up -d --build
+docker-compose exec backend python3 -c "from app.db.database import engine; from app.db.models import Base; Base.metadata.create_all(bind=engine)"
+docker-compose exec backend python3 -c "from app.db.database import engine; from app.db.models import Base; Base.metadata.create_all(bind=engine)"
+docker-compose exec backend bash -c "export PYTHONPATH=/app && python3 -u -m app.services.kafka_consumer"
+docker-compose exec backend bash -c "export PYTHONPATH=/app && python3 -u -m app.services.kafka_producer"
